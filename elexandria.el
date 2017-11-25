@@ -8,6 +8,28 @@
 
 ;;;;; EIEIO
 
+(defmacro defclass* (name superclasses slots &rest options-and-doc)
+  "Like `defclass', but supports instance initforms.
+Each slot may have an `:instance-initform', which is evaluated in
+the context of the object's slots when each instance is
+initialized."
+  (declare (indent defun))
+  (let* ((slot-inits (-non-nil (--map (let ((name (car it))
+                                            (initer (plist-get (cdr it) :instance-initform)))
+                                        (when initer
+                                          (list 'setq name initer)))
+                                      slots)))
+         (slot-names (mapcar #'car slots))
+         (around-fn-name (intern (concat (symbol-name name) "-initialize")))
+         (docstring (format "Inititalize instance of %s." name)))
+    `(progn
+       (defclass ,name ,superclasses ,slots ,@options-and-doc)
+       (when (> (length ',slot-inits) 0)
+         (cl-defmethod initialize-instance :after ((this ,name) &rest _)
+                       ,docstring
+                       (with-slots ,slot-names this
+                         ,@slot-inits))))))
+
 (defmacro oref* (&rest slots)
   "Access SLOTS of nested EIEIO objects.
 The first of SLOTS should be an object, while the rest should be
@@ -40,28 +62,6 @@ Is transformed to:
   (cl-loop for (slots object) in (reverse slots-objects)
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
-
-(defmacro defclass* (name superclasses slots &rest options-and-doc)
-  "Like `defclass', but supports instance initforms.
-Each slot may have an `:instance-initform', which is evaluated in
-the context of the object's slots when each instance is
-initialized."
-  (declare (indent defun))
-  (let* ((slot-inits (-non-nil (--map (let ((name (car it))
-                                            (initer (plist-get (cdr it) :instance-initform)))
-                                        (when initer
-                                          (list 'setq name initer)))
-                                      slots)))
-         (slot-names (mapcar #'car slots))
-         (around-fn-name (intern (concat (symbol-name name) "-initialize")))
-         (docstring (format "Inititalize instance of %s." name)))
-    `(progn
-       (defclass ,name ,superclasses ,slots ,@options-and-doc)
-       (when (> (length ',slot-inits) 0)
-         (cl-defmethod initialize-instance :after ((this ,name) &rest _)
-                       ,docstring
-                       (with-slots ,slot-names this
-                         ,@slot-inits))))))
 
 
 ;;;; Footer
