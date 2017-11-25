@@ -110,6 +110,41 @@ Is transformed to:
 ;;     `(let ,gensyms
 ;;        ,@body)))
 
+;;;; Markers
+
+(defmacro with-markers (markers &rest body)
+  "Evaluate BODY with MARKERS bound, then clear each marker.
+MARKERS should be a list of the form (SYMBOL FORM), where FORM
+evaluates to a marker or nil."
+  (declare (indent defun))
+  (let ((varlist (cl-loop for m in markers
+                          if (atom m)
+                          collect m
+                          else
+                          collect (list (car m) `(copy-marker ,(cadr m)))))
+        (marker-list (cl-loop for m in markers
+                              if (atom m)
+                              collect m
+                              else
+                              collect (car m))))
+    `(let ,varlist
+       ,@body
+       (cl-loop for m in (list ,@marker-list)
+                do (set-marker m nil)))))
+
+;;;; Processes
+
+(defmacro call-process-with-args (process &rest args)
+  "Return standard output of running PROCESS with ARGS.
+Uses `call-process'.  Raises error if PROCESS exits with non-zero
+status."
+  (declare (indent defun))
+  `(with-temp-buffer
+     (unless (= 0 (call-process ,process nil t nil
+                                ,@args))
+       (error ,(concat process " failed")))
+     (buffer-substring-no-properties (point-min) (point-max))))
+
 ;;;; Footer
 
 (provide 'elexandria)
