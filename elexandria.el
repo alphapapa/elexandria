@@ -66,7 +66,7 @@ Is transformed to:
 
 ;;;;; Gensyms
 
-(defmacro with-gensyms (symbols &rest body)
+(defmacro with-gensyms* (symbols &rest body)
   (declare (indent defun))
   ;; This works but turns a lisp-2 into a lisp-1: function names that
   ;; are also used as gensym variable names are replaced with the
