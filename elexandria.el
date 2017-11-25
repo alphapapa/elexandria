@@ -146,6 +146,19 @@ status."
        (error ,(concat process " failed")))
      (buffer-substring-no-properties (point-min) (point-max))))
 
+
+;;;; Functions
+
+;;;;; Math
+
+(defun clamp (number min max)
+  "Return NUMBER clamped to range bound by MIN and MAX.
+Return MIN if NUMBER is less than or equal to MIN, or MAX if it's
+greater than or equal to MAX, or NUMBER if it's between them."
+  (cond ((<= number min) min)
+        ((>= number max) max)
+        (t number)))
+
 ;;;; Footer
 
 (provide 'elexandria)
