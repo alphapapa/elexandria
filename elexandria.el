@@ -64,7 +64,7 @@ Is transformed to:
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
 
-;;;;; Gensyms
+;;;;; Symbols
 
 (defmacro with-gensyms* (symbols &rest body)
   (declare (indent defun))
