@@ -63,6 +63,52 @@ Is transformed to:
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
 
+;;;; Gensyms
+
+(defmacro with-gensyms (symbols &rest body)
+  (declare (indent defun))
+  ;; This works but turns a lisp-2 into a lisp-1: function names that
+  ;; are also used as gensym variable names are replaced with the
+  ;; gensym.  I suppose this is better than the one below, because
+  ;; this would cause an obvious error, e.g. if "list" were used as a
+  ;; gensym, it would be replaced with the gensym, and any calls to
+  ;; "list" would immediately fail.
+  (let* ((gensyms (cl-loop for symbol in symbols
+                           collect (list symbol (cl-gensym (symbol-name symbol)))))
+         (body (cl-labels ((sym (atom)
+                                (if-let (sym (cl-find atom gensyms :key #'car))
+                                    (cadr sym)
+                                  atom))
+                           (rec (sexp)
+                                (if (atom sexp)
+                                    (sym sexp)
+                                  (cons (rec (car sexp))
+                                        (rec (cdr sexp))))))
+                 (mapcar #'rec body))))
+    `(let ,gensyms
+       ,@body)))
+
+;; (defmacro with-gensyms (symbols &rest body)
+;;   (declare (indent defun))
+;;   ;; This works, but it does not allow using function names as
+;;   ;; variable names: symbols that are functions at expansion time are
+;;   ;; never replaced with gensyms.
+;;   (let* ((gensyms (cl-loop for symbol in symbols
+;;                            collect (list symbol (cl-gensym (symbol-name symbol)))))
+;;          (body (cl-labels ((sym (atom)
+;;                                 (if (functionp atom)
+;;                                     atom
+;;                                   (if-let (sym (cl-find atom gensyms :key #'car))
+;;                                       (cadr sym)
+;;                                     atom)))
+;;                            (rec (sexp)
+;;                                 (if (atom sexp)
+;;                                     (sym sexp)
+;;                                   (cons (rec (car sexp))
+;;                                         (rec (cdr sexp))))))
+;;                  (mapcar #'rec body))))
+;;     `(let ,gensyms
+;;        ,@body)))
 
 ;;;; Footer
 
