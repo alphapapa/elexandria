@@ -13,6 +13,7 @@
 Each slot may have an `:instance-initform', which is evaluated in
 the context of the object's slots when each instance is
 initialized."
+  ;; TODO: Add option to set all slots' initforms (e.g. to set them all to nil).
   (declare (indent defun))
   (let* ((slot-inits (-non-nil (--map (let ((name (car it))
                                             (initer (plist-get (cdr it) :instance-initform)))
@@ -63,7 +64,7 @@ Is transformed to:
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
 
-;;;; Gensyms
+;;;;; Gensyms
 
 (defmacro with-gensyms (symbols &rest body)
   (declare (indent defun))
@@ -110,7 +111,7 @@ Is transformed to:
 ;;     `(let ,gensyms
 ;;        ,@body)))
 
-;;;; Markers
+;;;;; Markers
 
 (defmacro with-markers (markers &rest body)
   "Evaluate BODY with MARKERS bound, then clear each marker.
@@ -132,7 +133,7 @@ evaluates to a marker or nil."
        (cl-loop for m in (list ,@marker-list)
                 do (set-marker m nil)))))
 
-;;;; Processes
+;;;;; Processes
 
 (defmacro call-process-with-args (process &rest args)
   "Return standard output of running PROCESS with ARGS.
