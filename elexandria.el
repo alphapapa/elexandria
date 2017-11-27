@@ -67,49 +67,15 @@ Is transformed to:
 ;;;;; Symbols
 
 (defmacro with-gensyms* (symbols &rest body)
+  "Make a gensym for each of SYMBOLS, and replace each value instance of SYMBOLS in BODY with the corresponding gensym.
+This is like the common `with-gensyms' macro, except it uses
+`symbol-macrolet' to replace SYMBOLS, avoiding the need to
+quasiquote the BODY and unquote each gensym."
   (declare (indent defun))
-  ;; This works but turns a lisp-2 into a lisp-1: function names that
-  ;; are also used as gensym variable names are replaced with the
-  ;; gensym.  I suppose this is better than the one below, because
-  ;; this would cause an obvious error, e.g. if "list" were used as a
-  ;; gensym, it would be replaced with the gensym, and any calls to
-  ;; "list" would immediately fail.
   (let* ((gensyms (cl-loop for symbol in symbols
-                           collect (list symbol (cl-gensym (symbol-name symbol)))))
-         (body (cl-labels ((sym (atom)
-                                (if-let (sym (cl-find atom gensyms :key #'car))
-                                    (cadr sym)
-                                  atom))
-                           (rec (sexp)
-                                (if (atom sexp)
-                                    (sym sexp)
-                                  (cons (rec (car sexp))
-                                        (rec (cdr sexp))))))
-                 (mapcar #'rec body))))
-    `(let ,gensyms
+                           collect (list symbol (cl-gensym (symbol-name symbol))))))
+    `(cl-symbol-macrolet ,gensyms
        ,@body)))
-
-;; (defmacro with-gensyms (symbols &rest body)
-;;   (declare (indent defun))
-;;   ;; This works, but it does not allow using function names as
-;;   ;; variable names: symbols that are functions at expansion time are
-;;   ;; never replaced with gensyms.
-;;   (let* ((gensyms (cl-loop for symbol in symbols
-;;                            collect (list symbol (cl-gensym (symbol-name symbol)))))
-;;          (body (cl-labels ((sym (atom)
-;;                                 (if (functionp atom)
-;;                                     atom
-;;                                   (if-let (sym (cl-find atom gensyms :key #'car))
-;;                                       (cadr sym)
-;;                                     atom)))
-;;                            (rec (sexp)
-;;                                 (if (atom sexp)
-;;                                     (sym sexp)
-;;                                   (cons (rec (car sexp))
-;;                                         (rec (cdr sexp))))))
-;;                  (mapcar #'rec body))))
-;;     `(let ,gensyms
-;;        ,@body)))
 
 ;;;;; Markers
 
