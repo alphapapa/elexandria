@@ -167,11 +167,11 @@ _.  Any other character will be considered not part of a variable
 name, which allows placing such characters adjacent to variable
 names.  For example:
 
-  (format$ \"[$date] $username>\")
+  (format$ \"[$date-time] $username>\")
 
 Is expanded to:
 
-  (format \"[%s] %s>\" date username)"
+  (format \"[%s] %s>\" date-time username)"
   (cl-macrolet ((concatf (place str)
                          `(setf ,place (concat ,place ,str))))
     (cl-labels ((peek (seq)
