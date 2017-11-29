@@ -96,6 +96,7 @@ Is transformed to:
 This is like the common `with-gensyms' macro, except it uses
 `symbol-macrolet' to replace SYMBOLS, avoiding the need to
 quasiquote the BODY and unquote each gensym."
+  ;; FIXME: Needs more testing.
   (declare (indent defun))
   (let* ((gensyms (cl-loop for symbol in symbols
                            collect (list symbol (cl-gensym (symbol-name symbol))))))
