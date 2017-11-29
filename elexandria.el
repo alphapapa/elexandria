@@ -151,52 +151,73 @@ beginning with, e.g. `seq'.  It can take arguments exactly like
 
 ;;;;; Strings
 
-(defmacro format$ (str)
+(defmacro format$ (string &rest objects)
   "Interpolated `format'.
-Any word in STR beginning with \"$\" is replaced with the
-contents of the variable named that word.  For example:
+Any word in STRING beginning with \"$\" is replaced with the
+contents of the variable named that word.  OBJECTS are applied
+in-order to %-sequences in STR.
 
-  (format$ \"Name: $name\")
+For example:
+
+  (format$ \"%s $name\" greeting)
 
 Is expanded to:
 
-  (format \"Name: %s\" name)
+  (format \"%s %s\" greeting name)
 
 Variable names must contain only alphanumeric characters, -, or
 _.  Any other character will be considered not part of a variable
 name, which allows placing such characters adjacent to variable
 names.  For example:
 
-  (format$ \"[$date-time] $username>\")
+  (format$ \"[$date-time] %s $username>\" greeting)
 
 Is expanded to:
 
-  (format \"[%s] %s>\" date-time username)"
-  (cl-macrolet ((concatf (place str)
-                         `(setf ,place (concat ,place ,str))))
+  (format \"[%s] %s %s>\" date-time greeting username)"
+  (cl-macrolet ((concatf (place string)
+                         `(setf ,place (concat ,place ,string))))
     (cl-labels ((peek (seq)
                       (when (> (length seq) 1)
-                        (elt seq 1))))
-      (let* (current-var current-char (new-str "") vars)
-        (while (setq current-char (when (not (string-empty-p str))
-                                    (prog1 (seq-take str 1)
-                                      (setq str (seq-drop str 1)))))
+                        (elt seq 0))))
+      (let* (current-var current-char current-% (new-str "") vars)
+        (while (setq current-char (when (not (string-empty-p string))
+                                    (prog1 (seq-take string 1)
+                                      (setq string (seq-drop string 1)))))
           (pcase current-char
             ;; FIXME: Other whitespace chars.
-            (" " (pcase current-var
-                   (`nil (progn
-                           (concatf new-str current-char)
-                           (setq current-var nil)))
+            (" " (progn
+                   (or (pcase current-%
+                         (`nil nil)
+                         (_ (progn
+                              ;; Space after %-sequence
+                              (concatf new-str current-%))))
+                       (pcase current-var
+                         (`nil (progn
+                                 (concatf new-str current-char)))
+                         (_ (progn
+                              ;; Space after var
+                              (push (intern current-var) vars)))))
+                   (concatf new-str current-char)
+                   (setq current-var nil
+                         current-% nil)))
+            ("%" (pcase (peek string)
+                   ("%" (progn
+                          ;; %%
+                          (concatf new-str "%%")
+                          (seq-drop string 1)))
+                   (" " (progn
+                          ;; % alone
+                          (concatf new-str current-char)))
                    (_ (progn
-                        ;; Space after var
-                        (push (intern current-var) vars)
-                        (setq current-var nil)
-                        (concatf new-str current-char)))))
-            ("$" (pcase (peek str)
+                        ;; New %-sequence
+                        (setq current-% current-char)
+                        (push (pop objects) vars)))))
+            ("$" (pcase (peek string)
                    ("$" (progn
                           ;; "$$"
                           (concatf new-str "$$")
-                          (seq-drop str 1)))
+                          (seq-drop string 1)))
                    (" " (progn
                           ;; Plain "$"
                           (concatf new-str "$")))
@@ -208,23 +229,31 @@ Is expanded to:
                         (concatf new-str "%s")
                         (setq current-var t)))))
             ((pred (string-match-p (rx (or alnum "-" "_"))))
-             ;; Character could be part of var name
-             (pcase current-var
-               (`nil (progn
-                       ;; Non-var character
-                       (concatf new-str current-char)))
-               (`t (progn
-                     ;; New var name
-                     (setq current-var current-char)))
-               (_ (progn
-                    ;; Partial var name
-                    (concatf current-var current-char)))))
+             ;; Character could be part of var name or %-sequence
+             (or (pcase current-%
+                   (`nil nil)
+                   (_ (progn
+                        ;; Part of %-sequence
+                        (concatf current-% current-char))))
+                 (pcase current-var
+                   (`nil (progn
+                           ;; Non-var character
+                           (concatf new-str current-char)))
+                   (`t (progn
+                         ;; New var name
+                         (setq current-var current-char)))
+                   (_ (progn
+                        ;; Partial var name
+                        (concatf current-var current-char))))))
             (_
              ;; Character not part of var name
              (concatf new-str current-char))))
-        (when current-var
-          ;; String ended with variable
-          (push (intern current-var) vars))
+        (cond (current-%
+               ;; String ended with %-sequence
+               (concatf new-str current-%))
+              (current-var
+               ;; String ended with variable
+               (push (intern current-var) vars)))
         `(format ,new-str ,@(nreverse vars))))))
 
 ;;;; Functions
