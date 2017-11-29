@@ -184,7 +184,7 @@ Is expanded to:
           (pcase current-char
             ;; FIXME: Other whitespace chars.
             (" " (pcase current-var
-                   ('nil (progn
+                   (`nil (progn
                            (concatf new-str current-char)
                            (setq current-var nil)))
                    (_ (progn
@@ -200,7 +200,7 @@ Is expanded to:
                    (" " (progn
                           ;; Plain "$"
                           (concatf new-str "$")))
-                   ('nil (progn
+                   (`nil (progn
                            ;; End of string
                            (concatf new-str "$")))
                    (_ (progn
@@ -210,16 +210,15 @@ Is expanded to:
             ((pred (string-match-p (rx (or alnum "-" "_"))))
              ;; Character could be part of var name
              (pcase current-var
-               ('nil (progn
+               (`nil (progn
                        ;; Non-var character
                        (concatf new-str current-char)))
-               ('t (progn
+               (`t (progn
                      ;; New var name
                      (setq current-var current-char)))
                (_ (progn
                     ;; Partial var name
-                    (concatf current-var current-char))))
-             )
+                    (concatf current-var current-char)))))
             (_
              ;; Character not part of var name
              (concatf new-str current-char))))
