@@ -247,9 +247,23 @@ Is expanded to:
                    (_ (progn
                         ;; Partial var name
                         (concatf current-var current-char))))))
-            (_
-             ;; Character not part of var name
-             (concatf new-str current-char))))
+            (_ (progn
+                 (if (or (pcase current-%
+                           (`nil nil)
+                           (_ (progn
+                                ;; After %-sequence
+                                t)))
+                         (pcase current-var
+                           (`nil nil)
+                           (_ (progn
+                                ;; After var
+                                (push (intern current-var) vars)))))
+                     (progn
+                       (concatf new-str current-char)
+                       (setq current-var nil
+                             current-% nil))
+                   ;; Character not part of var name
+                   (concatf new-str current-char))))))
         (cond (current-%
                ;; String ended with %-sequence
                (concatf new-str current-%))
