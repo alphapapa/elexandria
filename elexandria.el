@@ -142,14 +142,15 @@ status."
 
 ;;;;; Regular expressions
 
-(defmacro rxs (&rest rest)
-  "Like `rx', but evaluated at runtime with `rx-to-string'.
-Unlike `rx-to-string', does not require a backquoted list
-beginning with, e.g. `seq'.  It can take arguments exactly like
-`rx'."
-  ;; Using `backquote' was easier than using double backquote
-  ;; characters for some reason.
-  `(rx-to-string (backquote (seq ,@rest))))
+;; FIXME: Doesn't work properly with e.g. `regexp' or `eval' forms in the `rx' form.
+;; (defmacro rxs (&rest rest)
+;;   "Like `rx', but evaluated at runtime with `rx-to-string'.
+;; Unlike `rx-to-string', does not require a backquoted list
+;; beginning with, e.g. `seq'.  It can take arguments exactly like
+;; `rx'."
+;;   ;; Using `backquote' was easier than using double backquote
+;;   ;; characters for some reason.
+;;   `(rx-to-string (backquote (seq ,@rest))))
 
 ;;;;; Strings
 
