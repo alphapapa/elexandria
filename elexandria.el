@@ -196,8 +196,7 @@ Is expanded to:
                               ;; Space after %-sequence
                               (concatf new-str current-%))))
                        (pcase current-var
-                         (`nil (progn
-                                 (concatf new-str current-char)))
+                         (`nil nil)
                          (_ (progn
                               ;; Space after var
                               (push (intern current-var) vars)))))
