@@ -2,7 +2,10 @@
 
 ;;;; Requirements
 
+(require 'cl-lib)
+(require 'eieio)
 (require 'dash)
+(require 'seq)
 
 ;;;; Macros
 
