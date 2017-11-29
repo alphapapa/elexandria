@@ -126,6 +126,85 @@ beginning with, e.g. `seq'.  It can take arguments exactly like
   ;; characters for some reason.
   `(rx-to-string (backquote (seq ,@rest))))
 
+;;;;; Strings
+
+(defmacro format$ (str)
+  "Interpolated `format'.
+Any word in STR beginning with \"$\" is replaced with the
+contents of the variable named that word.  For example:
+
+  (format$ \"Name: $name\")
+
+Is expanded to:
+
+  (format \"Name: %s\" name)
+
+Variable names must contain only alphanumeric characters, -, or
+_.  Any other character will be considered not part of a variable
+name, which allows placing such characters adjacent to variable
+names.  For example:
+
+  (format$ \"[$date] $username>\")
+
+Is expanded to:
+
+  (format \"[%s] %s>\" date username)"
+  (cl-macrolet ((concatf (place str)
+                         `(setf ,place (concat ,place ,str))))
+    (cl-labels ((peek (seq)
+                      (when (> (length seq) 1)
+                        (elt seq 1))))
+      (let* (current-var current-char (new-str "") vars)
+        (while (setq current-char (when (not (string-empty-p str))
+                                    (prog1 (seq-take str 1)
+                                      (setq str (seq-drop str 1)))))
+          (pcase current-char
+            ;; FIXME: Other whitespace chars.
+            (" " (pcase current-var
+                   ('nil (progn
+                           (concatf new-str current-char)
+                           (setq current-var nil)))
+                   (_ (progn
+                        ;; Space after var
+                        (push (intern current-var) vars)
+                        (setq current-var nil)
+                        (concatf new-str current-char)))))
+            ("$" (pcase (peek str)
+                   ("$" (progn
+                          ;; "$$"
+                          (concatf new-str "$$")
+                          (seq-drop str 1)))
+                   (" " (progn
+                          ;; Plain "$"
+                          (concatf new-str "$")))
+                   ('nil (progn
+                           ;; End of string
+                           (concatf new-str "$")))
+                   (_ (progn
+                        ;; New var
+                        (concatf new-str "%s")
+                        (setq current-var t)))))
+            ((pred (string-match-p (rx (or alnum "-" "_"))))
+             ;; Character could be part of var name
+             (pcase current-var
+               ('nil (progn
+                       ;; Non-var character
+                       (concatf new-str current-char)))
+               ('t (progn
+                     ;; New var name
+                     (setq current-var current-char)))
+               (_ (progn
+                    ;; Partial var name
+                    (concatf current-var current-char))))
+             )
+            (_
+             ;; Character not part of var name
+             (concatf new-str current-char))))
+        (when current-var
+          ;; String ended with variable
+          (push (intern current-var) vars))
+        `(format ,new-str ,@(nreverse vars))))))
+
 ;;;; Functions
 
 ;;;;; Math
