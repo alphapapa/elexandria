@@ -24,6 +24,8 @@
 
 ;;;; Requirements
 
+;; MAYBE: Can/should we use `eval-when-compile' on these?
+
 (require 'cl-lib)
 (require 'eieio)
 (require 'dash)
