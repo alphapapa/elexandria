@@ -177,6 +177,7 @@ names.  For example:
 Is expanded to:
 
   (format \"[%s] %s %s>\" date-time greeting username)"
+  ;; TODO: Rewrite this using regexps, probably would be simpler.
   (cl-macrolet ((concatf (place string)
                          `(setf ,place (concat ,place ,string))))
     (cl-labels ((peek (seq)
