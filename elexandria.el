@@ -178,6 +178,12 @@ names.  For example:
 Is expanded to:
 
   (format \"[%s] %s %s>\" date-time greeting username)"
+  ;; NOTE: `s-lex-format' does this, but with ${var} syntax.  However,
+  ;; it expands into a call to the `s-format' function, which then
+  ;; looks up values in an alist formed by multiple calls to `format',
+  ;; which happens at runtime.  So `format$', which expands to one
+  ;; call to `format' at runtime, may be preferable in some cases.
+
   ;; TODO: Rewrite this using regexps, probably would be simpler.
   (cl-macrolet ((concatf (place string)
                          `(setf ,place (concat ,place ,string))))
