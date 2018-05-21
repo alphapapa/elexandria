@@ -91,6 +91,31 @@ Is transformed to:
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
 
+;;;;; Keymaps
+
+(defmacro defkeymap (name copy docstring &rest maps)
+  "Define a new keymap variable (using `defvar').
+
+NAME is a symbol, which will be the new variable's symbol.  COPY
+may be a keymap which will be copied, or nil, in which case the
+new keymap will be sparse.  DOCSTRING is the docstring for
+`defvar'.
+
+MAPS is a plist sequence of key-value pairs.  The keys may be a
+string, in which case they will be passed as arguments to `kbd',
+or a raw key sequence vector.  The values may be lambdas or
+function symbols, as would be normally passed to `define-key'."
+  (declare (indent defun))
+  (let* ((map (if copy
+                  (copy-keymap copy)
+                (make-sparse-keymap name))))
+    (cl-loop for (key fn) on maps by #'cddr
+             do (progn
+                  (when (stringp key)
+                    (setq key (kbd key)))
+                  (define-key map key fn)))
+    `(defvar ,name ,map ,docstring)))
+
 ;;;;; Symbols
 
 (defmacro with-gensyms* (symbols &rest body)
