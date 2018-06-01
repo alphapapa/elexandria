@@ -304,6 +304,115 @@ Is expanded to:
                (push (intern current-var) vars)))
         `(format ,new-str ,@(nreverse vars))))))
 
+;;;;; URL-retrieve
+
+(cl-defmacro with-url-retrieve-sync (url silent inhibit-cookies &rest body)
+  "Retrieve URL synchronously with `url-retrieve-synchronously'.
+SILENT and INHIBIT-COOKIES are passed to `url-retrieve-synchronously', which see.
+
+BODY may be a function symbol or body form, which will be called
+when the request completes.  These variables will be bound in the
+call to BODY:
+
+`headers': The HTTP response headers as a string.
+`body': The HTTP response body as a string.
+
+After BODY is called, the response buffer will be killed automatically."
+  (declare (indent defun))
+  (let ((body (cl-typecase body
+                (function body)
+                (otherwise `(lambda ()
+                              ,body)))))
+    `(with-gensyms* (response-buffer headers response)
+       (let* ((response-buffer (url-retrieve-synchronously ,url ,silent ,inhibit-cookies))
+              headers response)
+         (when response-buffer
+           (unwind-protect
+               (with-current-buffer response-buffer
+                 (setq headers (buffer-substring (point) url-http-end-of-headers)
+                       response (buffer-substring url-http-end-of-headers (point-max))))
+             (unless (kill-buffer response-buffer)
+               (warn "Unable to kill response buffer: %s" response-buffer)))
+           (funcall ,body))))))
+
+(cl-defmacro with-url-retrieve-async (url &key cbargs silent inhibit-cookies data method extra-headers query success error)
+  "Retrieve URL asynchronously with `url-retrieve'.
+
+Arguments SILENT, and INHIBIT-COOKIES are passed to
+`url-retrieve', which see.
+
+DATA is bound to `url-request-data', which see.
+
+METHOD is bound to `url-request-method', which see.
+
+EXTRA-HEADERS is bound to `url-request-extra-headers', which see.
+
+QUERY is an alist of key-value pairs which will be
+appended to the URL as the query.
+
+SUCCESS may be a function symbol or a body form, which will be
+called upon successful completion of the request.  In the call to
+SUCCESS, these variables will be bound:
+
+`status': See `url-retrieve'.
+`cbargs': See `url-retrieve'.
+`headers': The HTTP response headers as a string.
+`body': The HTTP response body as a string.
+
+ERROR may be a function symbol or a body form.  In the error
+call, these variables will be bound, in addition to the ones
+bound for SUCCESS:
+
+`errors': The list of `url' error symbols for the most recent
+error, e.g. `(error http 404)' for an HTTP 404 error.
+
+In the SUCCESS and ERROR calls, the current buffer will be the
+response buffer, and it will be automatically killed when the
+call completes."
+  (declare (indent defun))
+  (with-gensyms* (success-body-fn error-body-fn url-obj filename query-string query-params)
+    (let* ((success-body-fn (cl-typecase success
+                              (function success)
+                              (otherwise `(lambda ()
+                                            ,success))))
+           (error-body-fn (cl-typecase error
+                            (function error)
+                            (otherwise `(lambda ()
+                                          (let ((errors (plist-get status :error)))
+                                            ,error))))))
+      `(let* ((url-request-data ,data)
+              (url-request-method (upcase (cl-typecase ,method
+                                            (symbol (symbol-name ,method))
+                                            (string ,method))))
+              (url-request-extra-headers ,extra-headers)
+              (callback (cl-function
+                         (lambda (status &rest cbargs)
+                           (unwind-protect
+                               ;; This is called with the current buffer already being the response buffer.
+                               (let ((headers (buffer-substring (point) url-http-end-of-headers))
+                                     (body (buffer-substring (1+ url-http-end-of-headers) (point-max))))
+                                 ;; Check for errors
+                                 (pcase status
+                                   ;; NOTE: This may need to be updated to correctly handle multiple errors
+                                   (`(:error . ,_) (funcall ,error-body-fn))
+                                   ((or 'nil `(:peer (:certificate . ,_) . ,_)) (funcall ,success-body-fn))
+                                   (_ (error "Response status unrecognized; please report this error: %s" status))))
+                             (unless (kill-buffer (current-buffer))
+                               (warn "Unable to kill response buffer: %s" (current-buffer)))))))
+              url-obj filename query-string query-params)
+         (if-let ((query ,query))
+             (progn
+               (setq query-params (cl-loop for (key . val) in query
+                                           when val
+                                           collect (list key val)))
+               (setq url-obj (url-generic-parse-url ,url))
+               (setq query-string (url-build-query-string query-params))
+               (setf (url-filename url-obj) (concat (url-filename url-obj) "?" query-string))
+               (setq url (url-recreate-url url-obj)))
+           (setq url ,url))
+         (message "\n\nDEBUG: %s" (list 'url-retrieve url callback ,cbargs ,silent ,inhibit-cookies))
+         (url-retrieve url callback ,cbargs ,silent ,inhibit-cookies)))))
+
 ;;;; Functions
 
 ;;;;; Math
