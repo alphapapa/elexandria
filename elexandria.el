@@ -340,40 +340,52 @@ After BODY is called, the response buffer will be killed automatically."
                (warn "Unable to kill response buffer: %s" response-buffer)))
            (funcall ,body))))))
 
-(cl-defmacro with-url-retrieve-async (url &key cbargs silent inhibit-cookies data method extra-headers query success error)
+(cl-defmacro with-url-retrieve-async (url &key cbargs silent inhibit-cookies data method extra-headers query success error
+                                          parse-body-fn)
   "Retrieve URL asynchronously with `url-retrieve'.
 
-Arguments SILENT, and INHIBIT-COOKIES are passed to
+Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
 `url-retrieve', which see.
 
 DATA is bound to `url-request-data', which see.
 
-METHOD is bound to `url-request-method', which see.
+METHOD may be a symbol or string, which is bound as a capitalized
+string to `url-request-method', which see.
 
-EXTRA-HEADERS is bound to `url-request-extra-headers', which see.
+EXTRA-HEADERS is an alist of header-value pairs, which is bound
+to `url-request-extra-headers', which see.
 
-QUERY is an alist of key-value pairs which will be
-appended to the URL as the query.
+QUERY is an alist of key-value pairs which is appended to the URL
+as the query.
 
-SUCCESS may be a function symbol or a body form, which will be
-called upon successful completion of the request.  In the call to
-SUCCESS, these variables will be bound:
+SUCCESS may be a function symbol or a body form, which is called
+with zero arguments upon successful completion of the request.
+In the call to SUCCESS, these variables will be bound:
 
 `status': See `url-retrieve'.
 `cbargs': See `url-retrieve'.
 `headers': The HTTP response headers as a string.
 `body': The HTTP response body as a string.
 
-ERROR may be a function symbol or a body form.  In the error
-call, these variables will be bound, in addition to the ones
-bound for SUCCESS:
+ERROR may be a function symbol or a body form, which is called
+with zero arguments if the request fails.  In the error call,
+these variables will be bound, in addition to the ones bound for
+SUCCESS:
 
 `errors': The list of `url' error symbols for the most recent
 error, e.g. `(error http 404)' for an HTTP 404 error.
 
-In the SUCCESS and ERROR calls, the current buffer will be the
-response buffer, and it will be automatically killed when the
-call completes."
+In the SUCCESS and ERROR calls, the current buffer is the
+response buffer, and it is automatically killed when the call
+completes.
+
+PARSE-BODY-FN may be a function which parses the body and returns
+a value to bind `body' to.  The point is positioned after the
+headers, at the beginning of the body, before calling the
+function.  For example, `json-read' may be used to parse JSON
+documents, after which the parsed JSON would be available in
+SUCCESS and ERROR as `body'.  Or, if the body is not needed,
+`ignore' could be used to prevent the body from being parsed."
   (declare (indent defun))
   (with-gensyms* (success-body-fn error-body-fn url-obj filename query-string query-params)
     (let* ((success-body-fn (cl-typecase success
@@ -393,7 +405,8 @@ call completes."
               (callback (cl-function
                          (lambda (status &rest cbargs)
                            (unwind-protect
-                               ;; This is called with the current buffer already being the response buffer.
+                               ;; This is called by `url' with the current buffer already being the
+                               ;; response buffer.
 
                                ;; FIXME: We can use `cl-symbol-macrolet' instead of `let' here,
                                ;; which only evaluates `headers' and `body' if they are present in
@@ -407,9 +420,16 @@ call completes."
                                ;; `request', so that e.g. `json-read' could read the response buffer
                                ;; directly, instead of turning the response into a string, then
                                ;; using `json-read-from-string', which inserts back into a temp
-                               ;; buffer, which is wasteful.
+                               ;; buffer, which is wasteful.  However, for the headers, I think it's
+                               ;; reasonable to always bind them as a string, because the headers
+                               ;; aren't very long, especially compared to a long HTML or JSON
+                               ;; document.
                                (let ((headers (buffer-substring (point) url-http-end-of-headers))
-                                     (body (buffer-substring (1+ url-http-end-of-headers) (point-max))))
+                                     (body (if ,parse-body-fn
+                                               (progn
+                                                 (goto-char (1+ url-http-end-of-headers))
+                                                 (funcall ,parse-body-fn))
+                                             (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
                                  ;; Check for errors
                                  (pcase status
                                    ;; NOTE: This may need to be updated to correctly handle multiple errors
@@ -420,6 +440,7 @@ call completes."
                                (warn "Unable to kill response buffer: %s" (current-buffer)))))))
               url-obj filename query-string query-params)
          (if-let ((query ,query))
+             ;; Build and append query string to URL
              (progn
                (setq query-params (cl-loop for (key . val) in query
                                            when val
@@ -428,8 +449,9 @@ call completes."
                (setq query-string (url-build-query-string query-params))
                (setf (url-filename url-obj) (concat (url-filename url-obj) "?" query-string))
                (setq url (url-recreate-url url-obj)))
+           ;; No query
            (setq url ,url))
-         (message "\n\nDEBUG: %s" (list 'url-retrieve url callback ,cbargs ,silent ,inhibit-cookies))
+         ;;  (message "\n\nDEBUG: %s" (list 'url-retrieve url callback ,cbargs ,silent ,inhibit-cookies))
          (url-retrieve url callback ,cbargs ,silent ,inhibit-cookies)))))
 
 ;;;; Functions
