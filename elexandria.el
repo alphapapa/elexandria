@@ -33,13 +33,17 @@
 
 ;;;; Macros
 
+;;;;; Binding
+
+;; TODO: `with-dict' and `with-plist-vals' from emacs-package-dev-handbook
+
 ;;;;; EIEIO
 
 (defmacro defclass* (name superclasses slots &rest options-and-doc)
   "Like `defclass', but supports instance initforms.
 Each slot may have an `:instance-initform', which is evaluated in
 the context of the object's slots when each instance is
-initialized."
+initialized, similar to Python's __init__ method."
   ;; TODO: Add option to set all slots' initforms (e.g. to set them all to nil).
   (declare (indent defun))
   (let* ((slot-inits (-non-nil (--map (let ((name (car it))
@@ -101,10 +105,11 @@ may be a keymap which will be copied, or nil, in which case the
 new keymap will be sparse.  DOCSTRING is the docstring for
 `defvar'.
 
-MAPS is a plist sequence of key-value pairs.  The keys may be a
-string, in which case they will be passed as arguments to `kbd',
-or a raw key sequence vector.  The values may be lambdas or
-function symbols, as would be normally passed to `define-key'."
+MAPS is a sequence of alternating key-value pairs.  The keys may
+be a string, in which case they will be passed as arguments to
+`kbd', or a raw key sequence vector.  The values may be lambdas
+or function symbols, as would be normally passed to
+`define-key'."
   (declare (indent defun))
   (let* ((map (if copy
                   (copy-keymap copy)
@@ -220,7 +225,7 @@ Is expanded to:
                                     (prog1 (seq-take string 1)
                                       (setq string (seq-drop string 1)))))
           (pcase current-char
-            ;; FIXME: Other whitespace chars.
+            ;; FIXME: Other whitespace chars.  (Use pcase rx matcher in Emacs 26!)
             (" " (progn
                    (or (pcase current-%
                          (`nil nil)
