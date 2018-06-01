@@ -394,6 +394,20 @@ call completes."
                          (lambda (status &rest cbargs)
                            (unwind-protect
                                ;; This is called with the current buffer already being the response buffer.
+
+                               ;; FIXME: We can use `cl-symbol-macrolet' instead of `let' here,
+                               ;; which only evaluates `headers' and `body' if they are present in
+                               ;; the body-fns, which would be good, to avoid making strings when
+                               ;; they are not used.  However, if the body-fns are passed to the
+                               ;; macro as function symbols rather than body forms, the macrolet
+                               ;; would not activate, because it can't see into the other functions'
+                               ;; bodies (or if it could, that would probably be way too complicated
+                               ;; and a bad idea).  So we might want to figure out a way to make the
+                               ;; strings optional.  Or maybe we could set a parser arg, similar to
+                               ;; `request', so that e.g. `json-read' could read the response buffer
+                               ;; directly, instead of turning the response into a string, then
+                               ;; using `json-read-from-string', which inserts back into a temp
+                               ;; buffer, which is wasteful.
                                (let ((headers (buffer-substring (point) url-http-end-of-headers))
                                      (body (buffer-substring (1+ url-http-end-of-headers) (point-max))))
                                  ;; Check for errors
