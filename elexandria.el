@@ -323,6 +323,7 @@ call to BODY:
 `body': The HTTP response body as a string.
 
 After BODY is called, the response buffer will be killed automatically."
+  ;; FIXME: Add enhancements from -async version
   (declare (indent defun))
   (let ((body (cl-typecase body
                 (function body)
@@ -442,6 +443,7 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
          (if-let ((query ,query))
              ;; Build and append query string to URL
              (progn
+               ;; Transform alist to plain list for `url-build-query-string'
                (setq query-params (cl-loop for (key . val) in query
                                            when val
                                            collect (list key val)))
