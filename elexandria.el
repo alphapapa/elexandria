@@ -340,7 +340,7 @@ Expands to:
 
 ;;;;; URL-retrieve
 
-(cl-defmacro with-url-retrieve-sync (url silent inhibit-cookies &rest body)
+(cl-defmacro url-with-retrieve-sync (url silent inhibit-cookies &rest body)
   "Retrieve URL synchronously with `url-retrieve-synchronously'.
 SILENT and INHIBIT-COOKIES are passed to `url-retrieve-synchronously', which see.
 
@@ -352,7 +352,7 @@ call to BODY:
 `body': The HTTP response body as a string.
 
 After BODY is called, the response buffer will be killed automatically."
-  ;; FIXME: Add enhancements from -async version
+  ;; FIXME: Add enhancements from -async version and function version
   (declare (indent defun))
   (let ((body (cl-typecase body
                 (function body)
@@ -370,8 +370,9 @@ After BODY is called, the response buffer will be killed automatically."
                (warn "Unable to kill response buffer: %s" response-buffer)))
            (funcall ,body))))))
 
-(cl-defmacro with-url-retrieve-async (url &key cbargs silent inhibit-cookies data method extra-headers query success error
-                                          parse-body-fn)
+(cl-defun url-with-retrieve-async (url &key cbargs silent inhibit-cookies data
+                                       (method "GET") extra-headers query success error
+                                       parser)
   "Retrieve URL asynchronously with `url-retrieve'.
 
 Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
@@ -417,73 +418,81 @@ documents, after which the parsed JSON would be available in
 SUCCESS and ERROR as `body'.  Or, if the body is not needed,
 `ignore' could be used to prevent the body from being parsed."
   (declare (indent defun))
-  (with-gensyms* (success-body-fn error-body-fn url-obj filename query-string query-params)
-    (let* ((success-body-fn (cl-typecase success
-                              (function success)
-                              (otherwise `(lambda ()
-                                            ,success))))
-           (error-body-fn (cl-typecase error
-                            (function error)
-                            (otherwise `(lambda ()
-                                          (let ((errors (plist-get status :error)))
-                                            ,error))))))
-      `(let* ((url-request-data ,data)
-              (url-request-method (upcase (cl-typecase ,method
-                                            (symbol (symbol-name ,method))
-                                            (string ,method))))
-              (url-request-extra-headers ,extra-headers)
-              (callback (cl-function
-                         (lambda (status &rest cbargs)
-                           (unwind-protect
-                               ;; This is called by `url' with the current buffer already being the
-                               ;; response buffer.
+  (let* ((success-body-fn (cl-typecase success
+                            (function success)
+                            (otherwise (byte-compile
+                                        `(cl-function
+                                          (lambda (&key cbargs status headers body)
+                                            ,success))))))
+         (error-body-fn (cl-typecase error
+                          (function error)
+                          (otherwise (byte-compile
+                                      `(cl-function
+                                        (lambda (&key cbargs status error headers body)
+                                          ,error))))))
+         (url-request-data data)
+         (url-request-method (upcase (cl-typecase method
+                                       (symbol (symbol-name method))
+                                       (string method))))
+         (url-request-extra-headers extra-headers)
+         (callback (lambda (status &optional cbargs)
+                     (unwind-protect
+                         ;; This is called by `url' with the current buffer already being the
+                         ;; response buffer.
 
-                               ;; FIXME: We can use `cl-symbol-macrolet' instead of `let' here,
-                               ;; which only evaluates `headers' and `body' if they are present in
-                               ;; the body-fns, which would be good, to avoid making strings when
-                               ;; they are not used.  However, if the body-fns are passed to the
-                               ;; macro as function symbols rather than body forms, the macrolet
-                               ;; would not activate, because it can't see into the other functions'
-                               ;; bodies (or if it could, that would probably be way too complicated
-                               ;; and a bad idea).  So we might want to figure out a way to make the
-                               ;; strings optional.  Or maybe we could set a parser arg, similar to
-                               ;; `request', so that e.g. `json-read' could read the response buffer
-                               ;; directly, instead of turning the response into a string, then
-                               ;; using `json-read-from-string', which inserts back into a temp
-                               ;; buffer, which is wasteful.  However, for the headers, I think it's
-                               ;; reasonable to always bind them as a string, because the headers
-                               ;; aren't very long, especially compared to a long HTML or JSON
-                               ;; document.
-                               (let ((headers (buffer-substring (point) url-http-end-of-headers))
-                                     (body (if ,parse-body-fn
-                                               (progn
-                                                 (goto-char (1+ url-http-end-of-headers))
-                                                 (funcall ,parse-body-fn))
-                                             (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
-                                 ;; Check for errors
-                                 (pcase status
-                                   ;; NOTE: This may need to be updated to correctly handle multiple errors
-                                   (`(:error . ,_) (funcall ,error-body-fn))
-                                   ((or 'nil `(:peer (:certificate . ,_) . ,_)) (funcall ,success-body-fn))
-                                   (_ (error "Response status unrecognized; please report this error: %s" status))))
-                             (unless (kill-buffer (current-buffer))
-                               (warn "Unable to kill response buffer: %s" (current-buffer)))))))
-              url-obj filename query-string query-params)
-         (if-let ((query ,query))
-             ;; Build and append query string to URL
-             (progn
-               ;; Transform alist to plain list for `url-build-query-string'
-               (setq query-params (cl-loop for (key . val) in query
-                                           when val
-                                           collect (list key val)))
-               (setq url-obj (url-generic-parse-url ,url))
-               (setq query-string (url-build-query-string query-params))
-               (setf (url-filename url-obj) (concat (url-filename url-obj) "?" query-string))
-               (setq url (url-recreate-url url-obj)))
-           ;; No query
-           (setq url ,url))
-         ;;  (message "\n\nDEBUG: %s" (list 'url-retrieve url callback ,cbargs ,silent ,inhibit-cookies))
-         (url-retrieve url callback ,cbargs ,silent ,inhibit-cookies)))))
+                         ;; FIXME: We can use `cl-symbol-macrolet' instead of `let' here,
+                         ;; which only evaluates `headers' and `body' if they are present in
+                         ;; the body-fns, which would be good, to avoid making strings when
+                         ;; they are not used.  However, if the body-fns are passed to the
+                         ;; macro as function symbols rather than body forms, the macrolet
+                         ;; would not activate, because it can't see into the other functions'
+                         ;; bodies (or if it could, that would probably be way too complicated
+                         ;; and a bad idea).  So we might want to figure out a way to make the
+                         ;; strings optional.  Or maybe we could set a parser arg, similar to
+                         ;; `request', so that e.g. `json-read' could read the response buffer
+                         ;; directly, instead of turning the response into a string, then
+                         ;; using `json-read-from-string', which inserts back into a temp
+                         ;; buffer, which is wasteful.  However, for the headers, I think it's
+                         ;; reasonable to always bind them as a string, because the headers
+                         ;; aren't very long, especially compared to a long HTML or JSON
+                         ;; document.
+                         (let ((headers (buffer-substring (point) url-http-end-of-headers))
+                               (body (if parser
+                                         (progn
+                                           (goto-char (1+ url-http-end-of-headers))
+                                           (funcall parser))
+                                       (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
+                           ;; Check for errors
+                           (pcase status
+                             ;; NOTE: This may need to be updated to correctly handle multiple errors
+                             (`(:error . ,_) (funcall error-body-fn
+                                                      :cbargs cbargs
+                                                      :status status
+                                                      :error (plist-get status :error)
+                                                      :headers headers
+                                                      :body body))
+                             ((or 'nil `(:peer (:certificate . ,_) . ,_))
+                              (funcall success-body-fn
+                                       :cbargs cbargs
+                                       :status status
+                                       :headers headers
+                                       :body body))
+                             (_ (error "Response status unrecognized; please report this error: %s" status))))
+                       (unless (kill-buffer (current-buffer))
+                         (warn "Unable to kill response buffer: %s" (current-buffer))))))
+         url-obj filename query-string query-params)
+    (when query
+      ;; Build and append query string to URL
+      (progn
+        ;; Transform alist to plain list for `url-build-query-string'
+        (setq query-params (cl-loop for (key . val) in query
+                                    when val
+                                    collect (list key val)))
+        (setq url-obj (url-generic-parse-url url))
+        (setq query-string (url-build-query-string query-params))
+        (setf (url-filename url-obj) (concat (url-filename url-obj) "?" query-string))
+        (setq url (url-recreate-url url-obj))))
+    (url-retrieve url callback cbargs silent inhibit-cookies)))
 
 ;;;; Functions
 
