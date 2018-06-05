@@ -340,8 +340,13 @@ Expands to:
 
 ;;;;; URL-retrieve
 
+(defvar-local url-with-retrieve-async-timeout-timer nil
+  "When a response buffer has a timeout, this variable stores the
+  timer object so that it may be canceled if the request
+  completes successfully.")
+
 (cl-defun url-with-retrieve-async (url &key cbargs silent inhibit-cookies data
-                                       (method "GET") extra-headers query success error
+                                       (method "GET") extra-headers query timeout success error
                                        parser)
   "Retrieve URL asynchronously with `url-retrieve'.
 
@@ -408,50 +413,34 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
          (url-request-extra-headers extra-headers)
          (callback (lambda (status &optional cbargs)
                      (unwind-protect
-                         ;; This is called by `url' with the current buffer already being the
-                         ;; response buffer.
+                         ;; This is called by `url-http-activate-callback' with the response buffer
+                         ;; as the current buffer.
 
-                         ;; FIXME: We can use `cl-symbol-macrolet' instead of `let' here,
-                         ;; which only evaluates `headers' and `body' if they are present in
-                         ;; the body-fns, which would be good, to avoid making strings when
-                         ;; they are not used.  However, if the body-fns are passed to the
-                         ;; macro as function symbols rather than body forms, the macrolet
-                         ;; would not activate, because it can't see into the other functions'
-                         ;; bodies (or if it could, that would probably be way too complicated
-                         ;; and a bad idea).  So we might want to figure out a way to make the
-                         ;; strings optional.  Or maybe we could set a parser arg, similar to
-                         ;; `request', so that e.g. `json-read' could read the response buffer
-                         ;; directly, instead of turning the response into a string, then
-                         ;; using `json-read-from-string', which inserts back into a temp
-                         ;; buffer, which is wasteful.  However, for the headers, I think it's
-                         ;; reasonable to always bind them as a string, because the headers
-                         ;; aren't very long, especially compared to a long HTML or JSON
-                         ;; document.
-                         (let ((headers (buffer-substring (point) url-http-end-of-headers))
-                               (body (if parser
-                                         (progn
-                                           (goto-char (1+ url-http-end-of-headers))
-                                           (funcall parser))
-                                       (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
-                           ;; Check for errors
-                           (pcase status
-                             ;; NOTE: This may need to be updated to correctly handle multiple errors
-                             (`(:error . ,_) (funcall error-body-fn
-                                                      :cbargs cbargs
-                                                      :status status
-                                                      :error (plist-get status :error)
-                                                      :headers headers
-                                                      :body body))
-                             ((or 'nil `(:peer (:certificate . ,_) . ,_))
+                         ;; Check for errors
+                         (pcase status
+                           ;; NOTE: This may need to be updated to correctly handle multiple errors
+                           (`(:error . ,_) (funcall error-body-fn
+                                                    :cbargs cbargs
+                                                    :status status
+                                                    :error (plist-get status :error)))
+                           ((or 'nil `(:peer (:certificate . ,_) . ,_))
+                            (let ((headers (buffer-substring (point) url-http-end-of-headers))
+                                  (body (if parser
+                                            (progn
+                                              (goto-char (1+ url-http-end-of-headers))
+                                              (funcall parser))
+                                          (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
                               (funcall success-body-fn
                                        :cbargs cbargs
                                        :status status
                                        :headers headers
-                                       :body body))
-                             (_ (error "Response status unrecognized; please report this error: %s" status))))
+                                       :body body)))
+                           (_ (error "Response status unrecognized; please report this error: %s" (pp-to-string status))))
+                       (when url-with-retrieve-async-timeout-timer
+                         (cancel-timer url-with-retrieve-async-timeout-timer))
                        (unless (kill-buffer (current-buffer))
                          (warn "Unable to kill response buffer: %s" (current-buffer))))))
-         url-obj query-string query-params)
+         url-obj query-string query-params response-buffer)
     (when query
       ;; Build and append query string to URL
       (progn
@@ -463,7 +452,29 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
         (setq query-string (url-build-query-string query-params))
         (setf (url-filename url-obj) (concat (url-filename url-obj) "?" query-string))
         (setq url (url-recreate-url url-obj))))
-    (url-retrieve url callback cbargs silent inhibit-cookies)))
+    (setq response-buffer (url-retrieve url callback cbargs silent inhibit-cookies))
+    (when timeout
+      (with-current-buffer response-buffer
+        (setq-local url-with-retrieve-async-timeout-timer
+                    (run-with-timer timeout nil
+                                    (lambda ()
+                                      (when (and (buffer-live-p response-buffer)
+                                                 (get-buffer-process response-buffer))
+                                        (with-current-buffer response-buffer
+                                          ;; Since we are handling the timeout ourselves, when we kill the
+                                          ;; process, url.el considers it a "success", and therefore does not kill
+                                          ;; the buffer (it seems to only kill its own buffers when it detects a
+                                          ;; HTTP response error code, which we aren't getting).  So we first add
+                                          ;; an errors list to the first element of the callback args (the
+                                          ;; `status' arg), then we delete the process, causing the process's
+                                          ;; sentinel to be called, which then calls the callback, which detects
+                                          ;; the error and calls the error-body-fn.
+                                          (setq url-callback-arguments (list (list :error 'timeout) url-callback-arguments))
+                                          ;; Since `get-buffer-process' is a C function, we just call it again
+                                          ;; instead of storing the buffer process in a variable.
+                                          (delete-process (get-buffer-process response-buffer))
+                                          (setq url-with-retrieve-async-timeout-timer nil))))))))
+    response-buffer))
 
 ;;;; Functions
 
