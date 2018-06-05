@@ -423,7 +423,11 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                                                     :cbargs cbargs
                                                     :status status
                                                     :error (plist-get status :error)))
-                           ((or 'nil `(:peer (:certificate . ,_) . ,_))
+                           ((or 'nil
+                                `(:peer (:certificate . ,_))
+                                `(:redirect . ,_))
+                            ;; NOTE: It's possible that there are more "successful" variations of
+                            ;; `status' that need to be matched here.
                             (let ((headers (buffer-substring (point) url-http-end-of-headers))
                                   (body (if parser
                                             (progn
