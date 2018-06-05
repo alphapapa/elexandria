@@ -340,36 +340,6 @@ Expands to:
 
 ;;;;; URL-retrieve
 
-(cl-defmacro url-with-retrieve-sync (url silent inhibit-cookies &rest body)
-  "Retrieve URL synchronously with `url-retrieve-synchronously'.
-SILENT and INHIBIT-COOKIES are passed to `url-retrieve-synchronously', which see.
-
-BODY may be a function symbol or body form, which will be called
-when the request completes.  These variables will be bound in the
-call to BODY:
-
-`headers': The HTTP response headers as a string.
-`body': The HTTP response body as a string.
-
-After BODY is called, the response buffer will be killed automatically."
-  ;; FIXME: Add enhancements from -async version and function version
-  (declare (indent defun))
-  (let ((body (cl-typecase body
-                (function body)
-                (otherwise `(lambda ()
-                              ,body)))))
-    `(with-gensyms* (response-buffer headers response)
-       (let* ((response-buffer (url-retrieve-synchronously ,url ,silent ,inhibit-cookies))
-              headers response)
-         (when response-buffer
-           (unwind-protect
-               (with-current-buffer response-buffer
-                 (setq headers (buffer-substring (point) url-http-end-of-headers)
-                       response (buffer-substring url-http-end-of-headers (point-max))))
-             (unless (kill-buffer response-buffer)
-               (warn "Unable to kill response buffer: %s" response-buffer)))
-           (funcall ,body))))))
-
 (cl-defun url-with-retrieve-async (url &key cbargs silent inhibit-cookies data
                                        (method "GET") extra-headers query success error
                                        parser)
@@ -434,6 +404,7 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
          (url-request-method (upcase (cl-typecase method
                                        (symbol (symbol-name method))
                                        (string method))))
+         ;; TODO: Note that extra-headers must be an alist, and both keys and values must be strings.
          (url-request-extra-headers extra-headers)
          (callback (lambda (status &optional cbargs)
                      (unwind-protect
@@ -480,7 +451,7 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                              (_ (error "Response status unrecognized; please report this error: %s" status))))
                        (unless (kill-buffer (current-buffer))
                          (warn "Unable to kill response buffer: %s" (current-buffer))))))
-         url-obj filename query-string query-params)
+         url-obj query-string query-params)
     (when query
       ;; Build and append query string to URL
       (progn
