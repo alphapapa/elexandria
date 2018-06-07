@@ -347,7 +347,7 @@ Expands to:
 
 (cl-defun url-with-retrieve-async (url &key cbargs silent inhibit-cookies data
                                        (method "GET") extra-headers query timeout success error
-                                       parser)
+                                       parser (query-on-exit t))
   "Retrieve URL asynchronously with `url-retrieve'.
 
 Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
@@ -478,6 +478,8 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                                           ;; instead of storing the buffer process in a variable.
                                           (delete-process (get-buffer-process response-buffer))
                                           (setq url-with-retrieve-async-timeout-timer nil))))))))
+    (unless query-on-exit
+      (set-process-query-on-exit-flag (get-buffer-process response-buffer) nil))
     response-buffer))
 
 ;;;; Functions
