@@ -212,11 +212,11 @@ Is expanded to:
 
 Including %-sequences, this:
 
-  (format$ \"Amount: ${amount% .02f}  $name  %s\" date)
+  (format$ \"Amount: ${amount%.02f}  $name  %s\" date)
 
 Expands to:
 
-  (format \"Amount: % .02f  %s  %s\" amount name date)"
+  (format \"Amount: %.02f  %s  %s\" amount name date)"
   (cl-macrolet ((concatf (place string)
                          `(setf ,place (concat ,place ,string)))
                 (peek (seq)
