@@ -348,6 +348,7 @@ Expands to:
 (cl-defun url-with-retrieve-async (url &key cbargs silent inhibit-cookies data
                                        (method "GET") extra-headers query timeout success error
                                        parser (query-on-exit t))
+  ;; FIXME: Ensure docstring is up-to-date with all recent changes.
   "Retrieve URL asynchronously with `url-retrieve'.
 
 Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
@@ -371,7 +372,7 @@ In the call to SUCCESS, these variables will be bound:
 `status': See `url-retrieve'.
 `cbargs': See `url-retrieve'.
 `headers': The HTTP response headers as a string.
-`body': The HTTP response body as a string.
+`data': The HTTP response body as a string.
 
 ERROR may be a function symbol or a body form, which is called
 with zero arguments if the request fails.  In the error call,
@@ -385,25 +386,25 @@ In the SUCCESS and ERROR calls, the current buffer is the
 response buffer, and it is automatically killed when the call
 completes.
 
-PARSE-BODY-FN may be a function which parses the body and returns
-a value to bind `body' to.  The point is positioned after the
-headers, at the beginning of the body, before calling the
+PARSER may be a function which parses the response body and
+returns a value to bind `data' to.  The point is positioned after
+the headers, at the beginning of the body, before calling the
 function.  For example, `json-read' may be used to parse JSON
 documents, after which the parsed JSON would be available in
-SUCCESS and ERROR as `body'.  Or, if the body is not needed,
+SUCCESS and ERROR as `data'.  Or, if the body is not needed,
 `ignore' could be used to prevent the body from being parsed."
   (declare (indent defun))
   (let* ((success-body-fn (cl-typecase success
                             (function success)
                             (otherwise (byte-compile
                                         `(cl-function
-                                          (lambda (&key cbargs status headers body)
+                                          (lambda (&key cbargs status headers data)
                                             ,success))))))
          (error-body-fn (cl-typecase error
                           (function error)
                           (otherwise (byte-compile
                                       `(cl-function
-                                        (lambda (&key cbargs status error headers body)
+                                        (lambda (&key cbargs status error headers data)
                                           ,error))))))
          (url-request-data data)
          (url-request-method (upcase (cl-typecase method
@@ -411,6 +412,9 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                                        (string method))))
          ;; TODO: Note that extra-headers must be an alist, and both keys and values must be strings.
          (url-request-extra-headers extra-headers)
+         ;; FIXME: Document how `url-http-attempt-keepalives' is set.
+         (url-http-attempt-keepalives (and (not timeout)
+                                           url-http-attempt-keepalives))
          (callback (lambda (status &optional cbargs)
                      (unwind-protect
                          ;; This is called by `url-http-activate-callback' with the response buffer
@@ -420,25 +424,36 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                          (pcase status
                            ;; NOTE: This may need to be updated to correctly handle multiple errors
                            (`(:error . ,_) (funcall error-body-fn
+						    :url url
                                                     :cbargs cbargs
                                                     :status status
                                                     :error (plist-get status :error)))
                            ((or 'nil
                                 `(:peer (:certificate . ,_))
                                 `(:redirect . ,_))
-                            ;; NOTE: It's possible that there are more "successful" variations of
-                            ;; `status' that need to be matched here.
-                            (let ((headers (buffer-substring (point) url-http-end-of-headers))
-                                  (body (if parser
-                                            (progn
-                                              (goto-char (1+ url-http-end-of-headers))
-                                              (funcall parser))
-                                          (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
-                              (funcall success-body-fn
-                                       :cbargs cbargs
-                                       :status status
-                                       :headers headers
-                                       :body body)))
+                            (if (not url-http-end-of-headers)
+                                ;; HACK: It seems that the callback can be called with `nil' when
+                                ;; the connection fails before getting any headers, like:
+                                ;; url-http-end-of-document-sentinel(#<process matrix.org<5>>
+                                ;; "connection broken by remote peer\n"), in which case
+                                ;; `url-http-end-of-headers' is nil, so we need to call the error
+                                ;; fn.  Would like to structure this more cleanly.
+                                (funcall error-body-fn
+                                         :url url
+                                         :cbargs cbargs
+                                         :status status
+                                         :error (plist-get status :error))
+                              (let ((headers (buffer-substring (point) url-http-end-of-headers))
+                                    (data (if parser
+                                              (progn
+                                                (goto-char (1+ url-http-end-of-headers))
+                                                (funcall parser))
+                                            (buffer-substring (1+ url-http-end-of-headers) (point-max)))))
+                                (funcall success-body-fn
+                                         :cbargs cbargs
+                                         :status status
+                                         :headers headers
+                                         :data data))))
                            (_ (error "Response status unrecognized; please report this error: %s" (pp-to-string status))))
                        (when url-with-retrieve-async-timeout-timer
                          (cancel-timer url-with-retrieve-async-timeout-timer))
@@ -473,6 +488,17 @@ SUCCESS and ERROR as `body'.  Or, if the body is not needed,
                                           ;; `status' arg), then we delete the process, causing the process's
                                           ;; sentinel to be called, which then calls the callback, which detects
                                           ;; the error and calls the error-body-fn.
+
+                                          ;; FIXME: Sometimes this seems to stop catching timeouts.
+                                          ;; When that happens, it seems that the response buffer
+                                          ;; process does not get deleted, as it remains listed in
+                                          ;; `list-processes'.  Maybe the solution is to bind
+                                          ;; `url-http-attempt-keepalives' to nil when a timeout is
+                                          ;; set, because maybe that would prevent processes from
+                                          ;; being left around, which seems to contribute to the
+                                          ;; problem.
+
+                                          ;; NOTE: This may be loosely relevant: <https://github.com/jorgenschaefer/circe/issues/327>
                                           (setq url-callback-arguments (list (list :error 'timeout) url-callback-arguments))
                                           ;; Since `get-buffer-process' is a C function, we just call it again
                                           ;; instead of storing the buffer process in a variable.
