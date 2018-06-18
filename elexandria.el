@@ -349,6 +349,10 @@ Expands to:
                                        (method "GET") extra-headers query timeout success error
                                        parser (query-on-exit t))
   ;; FIXME: Ensure docstring is up-to-date with all recent changes.
+
+  ;; TODO: Work around url calling callbacks multiple times.  Sigh.  See
+  ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=20159> and
+  ;; <https://github.com/skeeto/elisp-latch/issues/1#issuecomment-397910988>.
   "Retrieve URL asynchronously with `url-retrieve'.
 
 Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
