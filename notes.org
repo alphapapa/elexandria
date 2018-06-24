@@ -1,0 +1,14 @@
+#+PROPERTY: LOGGING nil
+
+* Ideas
+
+** TODO Add [[https://github.com/VincentToups/destructuring-set][destructuring-set]]
+
+Could be very useful.  e.g. used like:
+
+#+BEGIN_SRC elisp
+  (let ((l (list 1 2 3))
+        a b c)
+    (destructuring-set (a b c) l)
+    (list a b c))  ;=> (1 2 3)
+#+END_SRC
