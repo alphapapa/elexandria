@@ -514,6 +514,33 @@ SUCCESS and ERROR as `data'.  Or, if the body is not needed,
 
 ;;;; Functions
 
+;;;;; Lists
+
+(defun el-partition-by-column (list columns)
+  "Partition LIST into COLUMNS columns.
+Unlike some partition functions, columns are filled before rows.
+
+If COLUMNS is more than can be evenly filled, the appropriate
+smaller number will be used (for example, with a list of 8 items,
+if 5 columns were specified, 4 columns will actually be used."
+  (cl-loop with length = (length list)
+           with num-rows = (+ (/ length columns)
+                              (pcase (% length columns)
+                                (0 0)
+                                (_ 1)))
+           with result = (-repeat num-rows nil)
+           with row = 0
+           with col = 0
+           for elem = (pop list)
+           while elem
+           do (progn
+                (push elem (nth row result))
+                (incf row)
+                (when (= row num-rows)
+                  (setq row 0)
+                  (incf col)))
+           finally return (mapcar #'nreverse result)))
+
 ;;;;; Math
 
 (defun clamp (number min max)
