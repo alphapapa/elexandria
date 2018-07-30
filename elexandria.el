@@ -411,7 +411,7 @@ SUCCESS and ERROR as `data'.  Or, if the body is not needed,
                           (function error)
                           (otherwise (byte-compile
                                       `(cl-function
-                                        (lambda (&key cbargs status error headers data)
+                                        (lambda (&key cbargs status error headers data url)
                                           ,error))))))
          (url-request-data data)
          (url-request-method (upcase (cl-typecase method
