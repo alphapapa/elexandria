@@ -40,6 +40,9 @@
 ;;;;; EIEIO
 
 (defmacro defclass* (name superclasses slots &rest options-and-doc)
+  ;; MAYBE: Change instance-initform to instance-init.  This would no longer set
+  ;; the slot to the value of the expression, but would just evaluate it.  The
+  ;; expression could set the slot value with `setq' if necessary.
   "Like `defclass', but supports instance initforms.
 Each slot may have an `:instance-initform', which is evaluated in
 the context of the object's slots when each instance is
