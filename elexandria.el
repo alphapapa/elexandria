@@ -58,9 +58,9 @@ initialized, similar to Python's __init__ method."
        (defclass ,name ,superclasses ,slots ,@options-and-doc)
        (when (> (length ',slot-inits) 0)
          (cl-defmethod initialize-instance :after ((this ,name) &rest _)
-                       ,docstring
-                       (with-slots ,slot-names this
-                         ,@slot-inits))))))
+           ,docstring
+           (with-slots ,slot-names this
+             ,@slot-inits))))))
 
 (defmacro oref* (&rest slots)
   "Access SLOTS of nested EIEIO objects.
