@@ -356,6 +356,15 @@ Expands to:
   ;; TODO: Work around url calling callbacks multiple times.  Sigh.  See
   ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=20159> and
   ;; <https://github.com/skeeto/elisp-latch/issues/1#issuecomment-397910988>.
+
+  ;; TODO: Encode all data as UTF-8 and tell the server we're using that
+  ;; encoding.  Save everyone the trouble by doing the right thing
+  ;; automatically.  See:
+  ;; <https://github.com/jgkamat/matrix-client-el/commit/d3b0233ffb555a8d01bdafcfbe24d6c96b1dab1d>
+  ;; <https://debbugs.gnu.org/cgi/bugreport.cgi?bug=23750>
+  ;; <https://github.com/dakrone/es-mode/issues/62>
+  ;; <https://github.com/magit/ghub/issues/35>
+  ;; <https://github.com/magit/ghub/commit/45cd8c8341f2065aad6ed72200c10842f8087498>
   "Retrieve URL asynchronously with `url-retrieve'.
 
 Arguments CBARGS, SILENT, and INHIBIT-COOKIES are passed to
