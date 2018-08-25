@@ -571,3 +571,7 @@ greater than or equal to MAX, or NUMBER if it's between them."
 (provide 'elexandria)
 
 ;;; elexandria.el ends here
+
+;; Local Variables:
+;; fill-column: 80
+;; End:
