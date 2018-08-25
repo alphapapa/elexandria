@@ -173,6 +173,30 @@ status."
        (error ,(concat process " failed")))
      (buffer-substring-no-properties (point-min) (point-max))))
 
+;;;;; Region
+
+(defmacro el-with-narrow (beg end &rest body)
+  "Evaluate BODY with buffer narrowed to region between BEG and END.
+Start with point at beginning of region.  Excursion and
+restriction are saved."
+  (declare (indent defun))
+  `(save-excursion
+     (save-restriction
+       (narrow-to-region beg end)
+       (goto-char (point-min))
+       ,@body)))
+
+(defmacro el-with-region (&rest body)
+  "Evaluate BODY with buffer narrowed to current region.
+Raise error if there is no active region.  Uses
+`el-with-narrow'."
+  (declare (indent defun))
+  `(progn
+     (unless (region-active-p)
+       (error "No active region"))
+     (el-with-narrow (region-beginning) (region-end)
+       ,@body)))
+
 ;;;;; Regular expressions
 
 ;; FIXME: Doesn't work properly with e.g. `regexp' or `eval' forms in the `rx' form.
