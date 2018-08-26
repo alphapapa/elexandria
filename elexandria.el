@@ -197,6 +197,16 @@ Raise error if there is no active region.  Uses
      (el-with-narrow (region-beginning) (region-end)
        ,@body)))
 
+(defmacro el-with-region-or-buffer (&rest body)
+  "Evaluate BODY on whole buffer, or region if active.
+Uses `el-with-narrow'."
+  (declare (indent defun))
+  `(save-mark-and-excursion
+     (unless (region-active-p)
+       (mark-whole-buffer))
+     (el-with-narrow (region-beginning) (region-end)
+       ,@body)))
+
 ;;;;; Regular expressions
 
 ;; FIXME: Doesn't work properly with e.g. `regexp' or `eval' forms in the `rx' form.
