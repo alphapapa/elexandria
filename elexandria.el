@@ -182,7 +182,7 @@ restriction are saved."
   (declare (indent defun))
   `(save-excursion
      (save-restriction
-       (narrow-to-region beg end)
+       (narrow-to-region ,beg ,end)
        (goto-char (point-min))
        ,@body)))
 
