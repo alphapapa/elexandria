@@ -12,3 +12,31 @@ Could be very useful.  e.g. used like:
     (destructuring-set (a b c) l)
     (list a b c))  ;=> (1 2 3)
 #+END_SRC
+
+* Benchmark
+
+** clamp vs clamp*
+
+#+BEGIN_SRC elisp
+  (defun clamp (number min max)
+    "Return NUMBER clamped to range bound by MIN and MAX.
+  Return MIN if NUMBER is less than or equal to MIN, or MAX if it's
+  greater than or equal to MAX, or NUMBER if it's between them."
+    (cond ((<= number min) min)
+          ((>= number max) max)
+          (t number)))
+
+  (defsubst clamp* (min number max)
+    "Return NUMBER clamped to between MIN and MAX, inclusive."
+    (max min (min max number)))
+
+  (bench-multi :times 100000
+    :forms (("cond-based" (clamp (random 100) 25 75))
+            ("min/max-based" (clamp* 25 (random 100) 75))))
+#+END_SRC
+
+#+RESULTS:
+| Form          | x faster than next |       Total runtime | # of GCs | Total GC runtime |
+|---------------+--------------------+---------------------+----------+------------------|
+| min/max-based | 1.91               |         0.023576537 |        0 |              0.0 |
+| cond-based    | slowest            | 0.04509073300000001 |        0 |              0.0 |

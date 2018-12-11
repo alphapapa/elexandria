@@ -592,13 +592,9 @@ if 5 columns were specified, 4 columns will actually be used."
 
 ;;;;; Math
 
-(defun clamp (number min max)
-  "Return NUMBER clamped to range bound by MIN and MAX.
-Return MIN if NUMBER is less than or equal to MIN, or MAX if it's
-greater than or equal to MAX, or NUMBER if it's between them."
-  (cond ((<= number min) min)
-        ((>= number max) max)
-        (t number)))
+(defsubst clamp (min number max)
+  "Return NUMBER clamped to between MIN and MAX, inclusive."
+  (max min (min max number)))
 
 ;;;; Footer
 
