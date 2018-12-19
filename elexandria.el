@@ -98,6 +98,44 @@ Is transformed to:
            do (setq body `((with-slots ,slots ,object ,@body)))
            finally return (car body)))
 
+;;;;; Files
+
+(cl-defmacro with-file-buffer (path options &body body)
+  "Insert contents of file at PATH into a temp buffer, and evaluate and return the value of BODY in it.
+OPTIONS is a plist accepting the following options:
+
+`:must-exist': If non-nil, raise an error if no file exists at
+PATH.
+
+`:write': If non-nil, write the contents of the buffer to file at
+PATH after evaluating BODY.
+
+`:overwrite': If nil (or unset), raise an error instead of
+overwriting an existing file at PATH.  If `ask', ask for
+confirmation before overwriting an existing file.  If t,
+overwrite a file at PATH unconditionally.
+
+`:append': Passed to function `write-region', which see.
+
+`:visit':  Passed to function `write-region', which see."
+  (declare (indent 2))
+  `(with-temp-buffer
+     (if (file-readable-p ,path)
+         (insert-file-contents ,path)
+       (when ,(plist-get options :must-exist)
+         (error "File not readable: %s" ,path)))
+     (prog1
+         (progn
+           ,@body)
+       ,(when (plist-get options :write)
+          `(write-region nil nil path
+                         ,(plist-get options :append)
+                         ,(plist-get options :visit)
+                         ,(pcase-exhaustive (plist-get options :overwrite)
+                            ('nil ''excl)
+                            ((or 'ask ''ask) ''ask)
+                            ('t nil)))))))
+
 ;;;;; Keymaps
 
 (defmacro defkeymap (name copy docstring &rest maps)
