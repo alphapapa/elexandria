@@ -566,6 +566,7 @@ SUCCESS and ERROR as `data'.  Or, if the body is not needed,
 ;;;;; Lists
 
 (defun el-partition-by-column (list columns)
+  ;; TODO: Probably rename `columns' to `num-columns' or `number'.
   "Partition LIST into COLUMNS columns.
 Unlike some partition functions, columns are filled before rows.
 
