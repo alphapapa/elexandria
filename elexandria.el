@@ -162,6 +162,15 @@ or function symbols, as would be normally passed to
                   (define-key map key fn)))
     `(defvar ,name ,map ,docstring)))
 
+;;;;; Lists
+
+(defmacro alist (&rest args)
+  "Make an alist from ARGS.
+ARGS should be a list of alternating key forms and value forms,
+which will be evaluated at runtime."
+  `(list ,@(cl-loop for (key value) on args by #'cddr
+                    collect `(cons ,key ,value))))
+
 ;;;;; Symbols
 
 (defmacro with-gensyms* (symbols &rest body)
