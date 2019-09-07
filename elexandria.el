@@ -154,13 +154,13 @@ or function symbols, as would be normally passed to
   (declare (indent defun))
   (let* ((map (if copy
                   (copy-keymap copy)
-                (make-sparse-keymap name))))
+                (make-sparse-keymap (prin1-to-string name)))))
     (cl-loop for (key fn) on maps by #'cddr
              do (progn
                   (when (stringp key)
                     (setq key (kbd key)))
                   (define-key map key fn)))
-    `(defvar ,name ,map ,docstring)))
+    `(defvar ,name ',map ,docstring)))
 
 ;;;;; Lists
 
