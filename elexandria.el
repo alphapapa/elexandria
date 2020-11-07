@@ -100,6 +100,8 @@ Is transformed to:
 
 ;;;;; Files
 
+;; TODO: Support `file-precious-flag' in the `:write' option.
+
 (cl-defmacro with-file-buffer (path options &body body)
   "Insert contents of file at PATH into a temp buffer, and evaluate and return the value of BODY in it.
 OPTIONS is a plist accepting the following options:
@@ -137,6 +139,8 @@ overwrite a file at PATH unconditionally.
                             ('t nil)))))))
 
 ;;;;; Keymaps
+
+;; MAYBE: Remove the defvar part?  It could be useful for keymaps which are not put in defvars.
 
 (defmacro defkeymap (name copy docstring &rest maps)
   "Define a new keymap variable (using `defvar').
