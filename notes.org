@@ -13,6 +13,8 @@ Could be very useful.  e.g. used like:
     (list a b c))  ;=> (1 2 3)
 #+END_SRC
 
+Alternatively, a =pcase-setq= version of =-setq= would be nice.
+
 * Benchmark
 
 ** clamp vs clamp*
