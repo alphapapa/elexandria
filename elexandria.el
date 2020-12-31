@@ -130,7 +130,7 @@ overwrite a file at PATH unconditionally.
          (progn
            ,@body)
        ,(when (plist-get options :write)
-          `(write-region nil nil path
+          `(write-region nil nil ,path
                          ,(plist-get options :append)
                          ,(plist-get options :visit)
                          ,(pcase-exhaustive (plist-get options :overwrite)
