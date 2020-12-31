@@ -117,10 +117,14 @@ overwriting an existing file at PATH.  If `ask', ask for
 confirmation before overwriting an existing file.  If t,
 overwrite a file at PATH unconditionally.
 
-`:append': Passed to function `write-region', which see.
+`:visit': Passed to function `write-region', which see.
 
-`:visit':  Passed to function `write-region', which see."
-  (declare (indent 2))
+`:lockname:' Passed to function `write-region', which see.
+
+`:append': Passed to function `write-region', which see.  (This
+is probably not what you want to do when using this macro, since
+it inserts the file's contents before evaluating BODY.)"
+  (declare (indent 2) (debug (stringp form body)))
   `(with-temp-buffer
      (if (file-readable-p ,path)
          (insert-file-contents ,path)
@@ -133,6 +137,7 @@ overwrite a file at PATH unconditionally.
           `(write-region nil nil ,path
                          ,(plist-get options :append)
                          ,(plist-get options :visit)
+                         ,(plist-get options :lockname)
                          ,(pcase-exhaustive (plist-get options :overwrite)
                             ('nil ''excl)
                             ((or 'ask ''ask) ''ask)
