@@ -100,8 +100,8 @@ Is transformed to:
 
 ;;;;; Files
 
-(defmacro with-file-buffer (path options &rest body)
-  "Evaluate BODY and return its value in a temp buffer for file at PATH.
+(defmacro with-file-buffer (file options &rest body)
+  "Evaluate BODY and return its value in a temp buffer for FILE.
 OPTIONS is a plist of the following options:
 
 `:insert': When non-nil (the default, when unspecified), insert
@@ -109,15 +109,15 @@ file's contents before evaluating BODY, leaving point before the
 contents.
 
 `:must-exist': When non-nil, signal an error if no file exists at
-PATH.
+FILE.
 
 `:write': When non-nil, write the contents of the buffer to file
-at PATH after evaluating BODY.
+at FILE after evaluating BODY.
 
 `:overwrite': When nil (the default, when unspecified), signal an
-error instead of overwriting an existing file at PATH.  If `ask',
+error instead of overwriting an existing file at FILE.  If `ask',
 ask for confirmation before overwriting an existing file.  If t,
-overwrite a file at PATH unconditionally.
+overwrite a file at FILE unconditionally.
 
 `:visit': Passed to function `write-region', which see.
 
@@ -139,16 +139,16 @@ value (when unspecified, nil)."
      (with-temp-buffer
        ,(when (or (not (plist-member options :insert))
                   (plist-get options :insert))
-          `(if (file-readable-p ,path)
+          `(if (file-readable-p ,file)
                (save-excursion
-                 (insert-file-contents ,path))
+                 (insert-file-contents ,file))
              (when ,(plist-get options :must-exist)
-               (error "File not readable: %s" ,path))))
+               (error "File not readable: %s" ,file))))
        (prog1
            (progn
              ,@body)
          ,(when (plist-get options :write)
-            `(write-region nil nil ,path
+            `(write-region nil nil ,file
                            ,(plist-get options :append)
                            ,(plist-get options :visit)
                            ,(plist-get options :lockname)
