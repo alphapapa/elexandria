@@ -100,7 +100,7 @@ Is transformed to:
 
 ;;;;; Files
 
-(cl-defmacro with-file-buffer (path options &body body)
+(defmacro with-file-buffer (path options &rest body)
   "Evaluate BODY and return its value in a temp buffer for file at PATH.
 OPTIONS is a plist of the following options:
 
