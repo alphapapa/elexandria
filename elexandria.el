@@ -101,31 +101,31 @@ Is transformed to:
 ;;;;; Files
 
 (cl-defmacro with-file-buffer (path options &body body)
-  "Insert contents of file at PATH into a temp buffer, and evaluate and return the value of BODY in it.
-OPTIONS is a plist accepting the following options:
+  "Evaluate BODY and return its value in a temp buffer for file at PATH.
+OPTIONS is a plist of the following options:
 
-`:insert': If non-nil (the default, when unspecified), insert
+`:insert': When non-nil (the default, when unspecified), insert
 file's contents before evaluating BODY, leaving point before the
 contents.
 
-`:must-exist': If non-nil, raise an error if no file exists at
+`:must-exist': When non-nil, signal an error if no file exists at
 PATH.
 
-`:write': If non-nil, write the contents of the buffer to file at
-PATH after evaluating BODY.
+`:write': When non-nil, write the contents of the buffer to file
+at PATH after evaluating BODY.
 
-`:overwrite': If nil (or unset), raise an error instead of
-overwriting an existing file at PATH.  If `ask', ask for
-confirmation before overwriting an existing file.  If t,
+`:overwrite': When nil (the default, when unspecified), signal an
+error instead of overwriting an existing file at PATH.  If `ask',
+ask for confirmation before overwriting an existing file.  If t,
 overwrite a file at PATH unconditionally.
 
 `:visit': Passed to function `write-region', which see.
 
 `:lockname:' Passed to function `write-region', which see.
 
-`:append': Passed to function `write-region', which see.  (This
-is probably not what you want to do when using this macro, since
-it inserts the file's contents before evaluating BODY.)
+`:append': Passed to function `write-region', which see.  (When
+using this option, you will probably want to specify `:insert
+nil' as well.)
 
 `:fsync': When non-nil (the default, when unspecified), bind
 `write-region-inhibit-fsync' (which see) to this value.
