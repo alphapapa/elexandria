@@ -106,6 +106,9 @@ Is transformed to:
   "Insert contents of file at PATH into a temp buffer, and evaluate and return the value of BODY in it.
 OPTIONS is a plist accepting the following options:
 
+`:insert': If non-nil (the default, when unspecified), insert
+file's contents before evaluating BODY.
+
 `:must-exist': If non-nil, raise an error if no file exists at
 PATH.
 
@@ -126,10 +129,12 @@ is probably not what you want to do when using this macro, since
 it inserts the file's contents before evaluating BODY.)"
   (declare (indent 2) (debug (stringp form body)))
   `(with-temp-buffer
-     (if (file-readable-p ,path)
-         (insert-file-contents ,path)
-       (when ,(plist-get options :must-exist)
-         (error "File not readable: %s" ,path)))
+     ,(when (or (not (plist-member options :insert))
+                (plist-get options :insert))
+        `(if (file-readable-p ,path)
+             (insert-file-contents ,path)
+           (when ,(plist-get options :must-exist)
+             (error "File not readable: %s" ,path))))
      (prog1
          (progn
            ,@body)
