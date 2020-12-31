@@ -126,27 +126,32 @@ overwrite a file at PATH unconditionally.
 
 `:append': Passed to function `write-region', which see.  (This
 is probably not what you want to do when using this macro, since
-it inserts the file's contents before evaluating BODY.)"
+it inserts the file's contents before evaluating BODY.)
+
+`:fsync': When non-nil (the default, when unspecified), bind
+`write-region-inhibit-fsync' (which see) to this value.
   (declare (indent 2) (debug (stringp form body)))
-  `(with-temp-buffer
-     ,(when (or (not (plist-member options :insert))
-                (plist-get options :insert))
-        `(if (file-readable-p ,path)
-             (insert-file-contents ,path)
-           (when ,(plist-get options :must-exist)
-             (error "File not readable: %s" ,path))))
-     (prog1
-         (progn
-           ,@body)
-       ,(when (plist-get options :write)
-          `(write-region nil nil ,path
-                         ,(plist-get options :append)
-                         ,(plist-get options :visit)
-                         ,(plist-get options :lockname)
-                         ,(pcase-exhaustive (plist-get options :overwrite)
-                            ('nil ''excl)
-                            ((or 'ask ''ask) ''ask)
-                            ('t nil)))))))
+  `(let ((write-region-inhibit-fsync ,(when (plist-member options :fsync)
+                                        (not (plist-get options :fsync)))))
+     (with-temp-buffer
+       ,(when (or (not (plist-member options :insert))
+                  (plist-get options :insert))
+          `(if (file-readable-p ,path)
+               (insert-file-contents ,path)
+             (when ,(plist-get options :must-exist)
+               (error "File not readable: %s" ,path))))
+       (prog1
+           (progn
+             ,@body)
+         ,(when (plist-get options :write)
+            `(write-region nil nil ,path
+                           ,(plist-get options :append)
+                           ,(plist-get options :visit)
+                           ,(plist-get options :lockname)
+                           ,(pcase-exhaustive (plist-get options :overwrite)
+                              ('nil ''excl)
+                              ((or 'ask ''ask) ''ask)
+                              ('t nil))))))))
 
 ;;;;; Keymaps
 
