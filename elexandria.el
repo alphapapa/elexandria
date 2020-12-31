@@ -105,7 +105,8 @@ Is transformed to:
 OPTIONS is a plist accepting the following options:
 
 `:insert': If non-nil (the default, when unspecified), insert
-file's contents before evaluating BODY.
+file's contents before evaluating BODY, leaving point before the
+contents.
 
 `:must-exist': If non-nil, raise an error if no file exists at
 PATH.
@@ -139,7 +140,8 @@ value (when unspecified, nil)."
        ,(when (or (not (plist-member options :insert))
                   (plist-get options :insert))
           `(if (file-readable-p ,path)
-               (insert-file-contents ,path)
+               (save-excursion
+                 (insert-file-contents ,path))
              (when ,(plist-get options :must-exist)
                (error "File not readable: %s" ,path))))
        (prog1
