@@ -100,8 +100,6 @@ Is transformed to:
 
 ;;;;; Files
 
-;; TODO: Support `file-precious-flag' in the `:write' option.
-
 (cl-defmacro with-file-buffer (path options &body body)
   "Insert contents of file at PATH into a temp buffer, and evaluate and return the value of BODY in it.
 OPTIONS is a plist accepting the following options:
@@ -130,9 +128,13 @@ it inserts the file's contents before evaluating BODY.)
 
 `:fsync': When non-nil (the default, when unspecified), bind
 `write-region-inhibit-fsync' (which see) to this value.
+
+`:precious': Bind `file-precious-flag' (which see) to this
+value (when unspecified, nil)."
   (declare (indent 2) (debug (stringp form body)))
   `(let ((write-region-inhibit-fsync ,(when (plist-member options :fsync)
-                                        (not (plist-get options :fsync)))))
+                                        (not (plist-get options :fsync))))
+         (file-precious-flag ,(plist-get options :precious)))
      (with-temp-buffer
        ,(when (or (not (plist-member options :insert))
                   (plist-get options :insert))
