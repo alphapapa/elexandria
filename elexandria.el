@@ -111,8 +111,8 @@ contents.
 `:must-exist': When non-nil, signal an error if no file exists at
 FILE.
 
-`:write': When non-nil, write the contents of the buffer to file
-at FILE after evaluating BODY.
+`:write': When non-nil, write the contents of the buffer to FILE
+after evaluating BODY.
 
 `:overwrite': When nil (the default, when unspecified), signal an
 error instead of overwriting an existing file at FILE.  If `ask',
